@@ -13,4 +13,13 @@ def solveWKRR(K, W, Y, lambda_):
 		   + n * lambda_ * np.identity(n), Wsqrt.dot(Y)))
 
 def sigmoid(x):
-	return 1 / (1 + np.exp(- x))
+	'''
+	Numerically stable sigmoid function, prevents overflow in exp
+	'''
+	positive = x >= 0
+	negative = x < 0
+	xx = 1 / (1 + np.exp(- x[positive]))
+	x[positive] = 1 / (1 + np.exp(- x[positive]))
+	z = np.exp(x[negative])
+	x[negative] = z / (z + 1)
+	return x

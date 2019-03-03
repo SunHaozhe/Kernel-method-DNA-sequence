@@ -3,6 +3,9 @@ from kernels import *
 import time
 import pandas as pd
 
+pd.options.mode.chained_assignment = None
+
+
 t0 = time.time()
 
 Xtr0 = pd.read_csv("../datasets/Xtr0.csv")
@@ -24,16 +27,30 @@ Xval = Xtr.loc[5000:, :]
 Ytrain = Ytr.loc[:5000 - 1, :]
 Yval = Ytr.loc[5000:, :]
 
+Xtrain.reset_index(drop=True, inplace=True)
+Xval.reset_index(drop=True, inplace=True)
+Ytrain.reset_index(drop=True, inplace=True)
+Yval.reset_index(drop=True, inplace=True)
 
-kernel = SpectrumKernel(3)
-clf = KernelLogisticRegression(kernel, lambda_=0.01)
-clf.fit(Xtrain, Ytrain, tolerance=1e-5)
-
-print(clf.score(Xval, Yval))
+Ytrain.loc[Ytrain.Bound == 0, "Bound"] = - 1
+Yval.loc[Yval.Bound == 0, "Bound"] = - 1
 
 
 
+kernel = SpectrumKernel(k=3)
+clf = KernelLogisticRegression(kernel, lambda_=0.01, 
+							   save_kernel_matrix=True,
+							   verbose=True,
+							   tolerance=1e-5)
 
+#clf.fit(Xtrain, Ytrain.Bound)
+kernel_matrix = kernel.load_kernel_matrix("../kernel_matrices/spectrum_kernel_k_3_5000.pkl")
+clf.fit_matrix(kernel_matrix, Xtrain, Ytrain.Bound)
+print("classifier already fit")
+
+print("")
+print("The score is:")
+print(clf.score(Xval, Yval.Bound))
 
 
 print("Done in %.4f s." % (time.time() - t0))

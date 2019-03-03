@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 
 class Kernel:
@@ -24,6 +25,17 @@ class Kernel:
 			output[i] = self.K(X_train.loc[i, X_train.columns[1]], x_test)
 		return output
 
+	@staticmethod
+	def save_kernel_matrix(save_path, kernel_matrix):
+		with open(save_path, "wb") as f:
+			pickle.dump(kernel_matrix, f)
+
+	@staticmethod
+	def load_kernel_matrix(save_path):
+		with open(save_path, "rb") as f:
+			kernel_matrix = pickle.load(f)
+		return kernel_matrix
+
 	def K(self, item1, item2):
 		raise NotImplementedError("K not implemented")
 
@@ -31,6 +43,7 @@ class SpectrumKernel(Kernel):
 	def __init__(self, k):
 		super().__init__()
 		self.k = k
+		self.name = "spectrum_kernel_k_" + str(k)
 
 	def K(self, item1, item2):
 		assert len(item1) >= self.k and len(item2) >= self.k, "sequences too short"
