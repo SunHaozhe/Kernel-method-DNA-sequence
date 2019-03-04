@@ -109,3 +109,6 @@ venv.bak/
 
 # pickle
 *.pkl
+
+# Yte
+Yte.csv
