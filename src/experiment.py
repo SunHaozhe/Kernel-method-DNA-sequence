@@ -1,6 +1,10 @@
+'''
+Validation accuracy
+'''
+
 from algorithms import *
 from kernels import *
-import time, os
+import time
 import pandas as pd
 import numpy as np 
 
@@ -20,21 +24,24 @@ Ytr0 = pd.read_csv(os.path.join(save_dir, "Ytr0.csv"))
 Ytr1 = pd.read_csv(os.path.join(save_dir, "Ytr1.csv"))
 Ytr2 = pd.read_csv(os.path.join(save_dir, "Ytr2.csv"))
 
-Xte0 = pd.read_csv(os.path.join(save_dir, "Xte0.csv"))
-Xte1 = pd.read_csv(os.path.join(save_dir, "Xte1.csv"))
-Xte2 = pd.read_csv(os.path.join(save_dir, "Xte2.csv"))
-
-
 Xtr = pd.concat([Xtr0, Xtr1, Xtr2])
 Xtr.reset_index(drop=True, inplace=True)
 
 Ytr = pd.concat([Ytr0, Ytr1, Ytr2])
 Ytr.reset_index(drop=True, inplace=True)
 
-Xte = pd.concat([Xte0, Xte1, Xte2])
-Xte.reset_index(drop=True, inplace=True)
+Xtrain = Xtr.loc[:5000 - 1, :]
+Xval = Xtr.loc[5000:, :]
+Ytrain = Ytr.loc[:5000 - 1, :]
+Yval = Ytr.loc[5000:, :]
 
-Ytr.loc[Ytr.Bound == 0, "Bound"] = - 1
+Xtrain.reset_index(drop=True, inplace=True)
+Xval.reset_index(drop=True, inplace=True)
+Ytrain.reset_index(drop=True, inplace=True)
+Yval.reset_index(drop=True, inplace=True)
+
+Ytrain.loc[Ytrain.Bound == 0, "Bound"] = - 1
+Yval.loc[Yval.Bound == 0, "Bound"] = - 1
 
 
 kernel = SpectrumKernel(k=9)
@@ -47,16 +54,16 @@ clf = KernelLogisticRegression(kernel, lambda_=0.01,
 matrix_is_ready = False
 
 if not matrix_is_ready:
-	clf.fit(Xtr, Ytr.Bound)
+	clf.fit(Xtrain, Ytrain.Bound)
 else:
 	kernel_matrix = kernel.load_kernel_matrix("../kernel_matrices/.pkl")
-	clf.fit_matrix(kernel_matrix, Xtr, Ytr.Bound)
+	clf.fit_matrix(kernel_matrix, Xtrain, Ytrain.Bound)
 
 print("classifier already fit")
 
-prediction = clf.predict(Xte)
+print("The score is:")
+print(clf.score(Xval, Yval.Bound))
 
-submit(prediction)
 
 print("Done in %.4f s." % (time.time() - t0))
 
