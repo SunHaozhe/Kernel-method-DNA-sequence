@@ -44,11 +44,11 @@ Ytrain.loc[Ytrain.Bound == 0, "Bound"] = - 1
 Yval.loc[Yval.Bound == 0, "Bound"] = - 1
 
 
-kernel = SpectrumKernel(k=9)
-clf = KernelLogisticRegression(kernel, lambda_=0.01, 
-							   save_kernel_matrix=True,
-							   verbose=True,
-							   tolerance=1e-5)
+kernel = SpectrumKernelQuick(k=11)
+clf = KernelLogisticRegressionQuick(kernel, lambda_=1e-6, 
+							   	    save_kernel_matrix=True,
+							   		verbose=True,
+							   		tolerance=1e-5)
 
 
 matrix_is_ready = False

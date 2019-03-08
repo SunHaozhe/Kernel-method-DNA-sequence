@@ -90,3 +90,51 @@ class KernelLogisticRegression(KernelClassifier):
 				break
 			previous = self.alpha
 
+
+class KernelLogisticRegressionQuick(KernelClassifier):
+	'''
+	Kernel Logistic Regression (optimized version)
+	'''
+	def __init__(self, kernel, lambda_, 
+		         save_kernel_matrix=False, 
+		         verbose=False,
+		         tolerance=1e-5):
+		super().__init__(kernel, save_kernel_matrix, verbose, tolerance)
+		self.lambda_ = lambda_
+
+	def predict_one_instance(self, idx):
+		vector = self.kernel.test(idx)
+		return self.alpha.dot(vector)
+
+	def predict(self, X_test):
+		self.kernel.make_test_dicts(X_test)
+		prediction = np.zeros(X_test.shape[0])
+		for idx in range(X_test.shape[0]):
+			prediction[idx] = self.predict_one_instance(idx)
+		output = np.zeros_like(prediction, dtype=int)
+		output[prediction < 0] = - 1
+		output[prediction >= 0] = 1
+		return output
+
+	def fit_matrix(self, K, X, y):
+		self.K = K
+		self.fit_matrix_(K, y)
+
+	def fit_matrix_(self, K, y):
+		self.alpha = np.random.rand(self.K.shape[0])
+		previous = self.alpha
+		while True:
+			m = self.K.dot(self.alpha)
+			P = - sigmoid(- y * m)
+			W = sigmoid(m) * sigmoid(- m)
+			z = m - P * y / W 
+			W = np.diag(W)
+			self.alpha = solveWKRR(self.K, W, z, self.lambda_)
+			
+			error = np.linalg.norm(previous - self.alpha)
+			if self.verbose:
+				print("error =", error)
+			if error <= self.tolerance:
+				break
+			previous = self.alpha
+
