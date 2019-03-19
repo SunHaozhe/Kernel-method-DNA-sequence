@@ -1,4 +1,4 @@
-from algorithms import *
+from classifiers import *
 from kernels import *
 import time, os
 import pandas as pd
@@ -37,11 +37,11 @@ Xte.reset_index(drop=True, inplace=True)
 Ytr.loc[Ytr.Bound == 0, "Bound"] = - 1
 
 
-kernel = SpectrumKernelQuick(k=11)
-clf = KernelLogisticRegressionQuick(kernel, lambda_=1e-6, 
-							   	    save_kernel_matrix=True,
-							   		verbose=True,
-							   		tolerance=1e-5)
+kernel = SpectrumKernel(k=11)
+clf = KernelLogisticRegression(kernel, lambda_=1e-6, 
+							   save_kernel_matrix=True,
+							   verbose=True,
+							   tolerance=1e-5)
 
 
 matrix_is_ready = False
@@ -49,8 +49,8 @@ matrix_is_ready = False
 if not matrix_is_ready:
 	clf.fit(Xtr, Ytr.Bound)
 else:
-	kernel_matrix = kernel.load_kernel_matrix("../kernel_matrices/.pkl")
-	clf.fit_matrix(kernel_matrix, Xtr, Ytr.Bound)
+	kernel = Kernel.load_kernel("../kernels_with_matrix/.pkl")
+	clf.fit_matrix(kernel, Ytrain.Bound)
 
 print("classifier already fit")
 

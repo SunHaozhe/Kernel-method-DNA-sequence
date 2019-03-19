@@ -1,46 +1,105 @@
 import numpy as np
 import pickle
 
-
-class Kernel:
+class Kernel():
 	def __init__(self):
 		pass
 
 	def build_matrix(self, X):
+		raise NotImplementedError("build_matrix not implemented.")
+
+	def test(self, x_test):
+		raise NotImplementedError("test not implemented.")
+
+	def save_kernel(self, save_path):
+		with open(save_path, "wb") as f:
+			pickle.dump(self, f)
+
+	@staticmethod
+	def load_kernel(save_path):
+		with open(save_path, "rb") as f:
+			kernel_matrix = pickle.load(f)
+		return kernel_matrix
+
+
+class KernelImplicit(Kernel):
+	'''
+	kernels with implicit inner products
+	'''
+	def __init__(self):
+		super().__init__()
+
+	def build_matrix(self, X):
+		self.X_train = X
 		n = X.shape[0]
 		output = np.zeros((n, n))
 		for i in range(n):
 			for j in range(i, n):
 				value = self.K(X.loc[i, X.columns[1]], X.loc[j, X.columns[1]])
-				if i != j:
-					output[i, j] = output[j, i] = value
-				else:
-					output[i, j] = value
-		return output
+				output[i, j] = output[j, i] = value
+		self.K_matrix = output
 
-	def test(self, X_train, x_test):
-		n = X_train.shape[0]
+	def test(self, x_test):
+		n = self.X_train.shape[0]
 		output = np.zeros(n)
 		for i in range(n):
-			output[i] = self.K(X_train.loc[i, X_train.columns[1]], x_test)
+			output[i] = self.K(self.X_train.loc[i, self.X_train.columns[1]], x_test)
 		return output
 
-	@staticmethod
-	def save_kernel_matrix(save_path, kernel_matrix):
-		with open(save_path, "wb") as f:
-			pickle.dump(kernel_matrix, f)
-
-	@staticmethod
-	def load_kernel_matrix(save_path):
-		with open(save_path, "rb") as f:
-			kernel_matrix = pickle.load(f)
-		return kernel_matrix
 
 	def K(self, item1, item2):
 		raise NotImplementedError("K not implemented")
 
 
-class SpectrumKernel(Kernel):
+class KernelExplicit(Kernel):
+	'''
+	kernels with explicit inner products
+	'''
+	def __init__(self):
+		super().__init__()
+
+	def build_matrix(self, X):
+		n = X.shape[0]
+		output = np.zeros((n, n))
+		self.train_phi = []
+		for i in range(n):
+			item = X.loc[i, X.columns[1]]
+			self.train_phi.append(self.make_phi(item)) #self.make_dict(item)
+
+		for i in range(n):
+			for j in range(i, n):
+				value = self.inner_product_phi(self.train_phi[i], self.train_phi[j])
+				output[i, j] = output[j, i] = value
+		self.K_matrix = output
+
+	def test(self, x_test):
+		'''
+		x_test: index of test example in the test set
+		'''
+		n = len(self.train_phi)
+		output = np.zeros(n)
+		for i in range(n):
+			output[i] = self.inner_product_phi(self.train_phi[i], self.test_phi[x_test])
+		return output
+
+	def make_test_phi(self, X_test):
+		n = X_test.shape[0]
+		self.test_phi = []
+		for i in range(n):
+			item = X_test.loc[i, X_test.columns[1]]
+			self.test_phi.append(self.make_phi(item))
+
+	def make_phi(self, item):
+		raise NotImplementedError("make_phi not implemented.")
+
+	def inner_product_phi(self, phi1, phi2):
+		raise NotImplementedError("inner_product_phi not implemented.")
+
+
+class SpectrumKernelSlow(KernelImplicit):
+	'''
+	This is depreciated because spectrum kernel corresponds to explicit inner products
+	'''
 	def __init__(self, k):
 		super().__init__()
 		self.k = k
@@ -48,8 +107,8 @@ class SpectrumKernel(Kernel):
 
 	def K(self, item1, item2):
 		assert len(item1) >= self.k and len(item2) >= self.k, "sequences too short"
-		dict1 = self.make_dict(item1)
-		dict2 = self.make_dict(item2)
+		dict1 = self.make_phi(item1)
+		dict2 = self.make_phi(item2)
 		keys = list(set(dict1.keys()) & set(dict2.keys()))
 		output = 0
 		for key in keys:
@@ -57,7 +116,7 @@ class SpectrumKernel(Kernel):
 		return output
 		
 
-	def make_dict(self, item):
+	def make_phi(self, item):
 		dict_ = {}
 		for i in range(len(item) - self.k + 1):
 			target = item[i : i + self.k]
@@ -68,60 +127,17 @@ class SpectrumKernel(Kernel):
 		return dict_
 
 
-class SpectrumKernelQuick(Kernel):
+class SpectrumKernel(KernelExplicit):
 	'''
-	Optimized version of spectrum kernel
+	spectrum kernel corresponds to explicit inner products
 	'''
 	def __init__(self, k):
 		super().__init__()
 		self.k = k
 		self.name = "spectrum_kernel_k_" + str(k)
 
-	def build_matrix(self, X):
-		n = X.shape[0]
-		output = np.zeros((n, n))
-		self.train_dicts = []
-		for i in range(n):
-			item = X.loc[i, X.columns[1]]
-			assert len(item) >= self.k, "sequences too short"
-			self.train_dicts.append(self.make_dict(item))
-
-		for i in range(n):
-			for j in range(i, n):
-				value = self.inner_product_dict(self.train_dicts[i], self.train_dicts[j]) 
-				if i != j:
-					output[i, j] = output[j, i] = value
-				else:
-					output[i, j] = value
-		return output
-
-	def make_test_dicts(self, X_test):
-		n = X_test.shape[0]
-		self.test_dicts = []
-		for i in range(n):
-			item = X_test.loc[i, X_test.columns[1]]
-			assert len(item) >= self.k, "sequences too short"
-			self.test_dicts.append(self.make_dict(item))
-
-	def test(self, idx):
-		'''
-		idx: index of test example in the test set
-		'''
-		n = len(self.train_dicts)
-		output = np.zeros(n)
-		for i in range(n):
-			output[i] = self.inner_product_dict(self.train_dicts[i], self.test_dicts[idx])
-		return output
-
-	def inner_product_dict(self, dict1, dict2):
-		keys = list(set(dict1.keys()) & set(dict2.keys()))
-		output = 0
-		for key in keys:
-			output += dict1[key] * dict2[key]
-		return output
-		
-
-	def make_dict(self, item):
+	def make_phi(self, item):
+		assert len(item) >= self.k, "sequences too short"
 		dict_ = {}
 		for i in range(len(item) - self.k + 1):
 			target = item[i : i + self.k]
@@ -130,6 +146,14 @@ class SpectrumKernelQuick(Kernel):
 			else:
 				dict_[target] += 1
 		return dict_
+
+	def inner_product_phi(self, dict1, dict2):
+		keys = list(set(dict1.keys()) & set(dict2.keys()))
+		output = 0
+		for key in keys:
+			output += dict1[key] * dict2[key]
+		return output
+		
 
 
 
