@@ -2,6 +2,8 @@ import numpy as np
 from kernels import *
 from utils import *
 import os
+import cvxopt
+ 
 
 class KernelClassifier:
 	'''
@@ -9,12 +11,10 @@ class KernelClassifier:
 	'''
 	def __init__(self, kernel, 
 		         save_kernel_with_matrix=False, 
-		         verbose=False,
-		         tolerance=1e-5):
+		         verbose=False):
 		self.kernel = kernel
 		self.save_kernel_with_matrix = save_kernel_with_matrix
 		self.verbose = verbose
-		self.tolerance = tolerance
 		self.kernels_with_matrix_dir = "../kernels_with_matrix"
 
 		if not os.path.exists(self.kernels_with_matrix_dir):
@@ -84,8 +84,9 @@ class KernelLogisticRegression(KernelClassifier):
 		         save_kernel_with_matrix=False, 
 		         verbose=False,
 		         tolerance=1e-5):
-		super().__init__(kernel, save_kernel_with_matrix, verbose, tolerance)
+		super().__init__(kernel, save_kernel_with_matrix, verbose)
 		self.lambda_ = lambda_
+		self.tolerance = tolerance
 
 	def fit_(self, y):
 		self.alpha = np.random.rand(self.kernel.K_matrix.shape[0])
@@ -104,6 +105,43 @@ class KernelLogisticRegression(KernelClassifier):
 			if error <= self.tolerance:
 				break
 			previous = self.alpha
+
+
+class KernelSVM(KernelClassifier):
+	'''
+	Kernel SVM classifier, C-SVM
+	'''
+	def __init__(self, kernel, C,
+				 save_kernel_with_matrix=False,
+				 verbose=False):
+		super().__init__(kernel, save_kernel_with_matrix, verbose)
+		self.C = C
+
+
+	def fit_(self, y):
+		cvxopt.solvers.options['show_progress'] = self.verbose
+		n = self.kernel.K_matrix.shape[0]
+		P = cvxopt.matrix(2 * self.kernel.K_matrix, tc="d")
+		q = cvxopt.matrix(- 2 * y, tc="d")
+		G = cvxopt.matrix(np.concatenate((np.diag(y), 
+										  np.diag(- y)), axis=0), tc="d")
+		h = cvxopt.matrix(np.concatenate((self.C * np.ones((n, 1)), 
+										  np.zeros((n, 1))), axis=0), tc="d")
+		
+		solution = cvxopt.solvers.qp(P, q, G, h)
+
+		if solution["status"] == "optimal":
+			self.alpha = np.array(solution["x"]).ravel()
+		else:
+			raise Exception("SVM optimal is not found.")
+
+
+
+
+
+
+
+
 
 
 
