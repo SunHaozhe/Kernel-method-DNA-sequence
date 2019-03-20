@@ -11,11 +11,12 @@ class KernelClassifier:
 	'''
 	def __init__(self, kernel, 
 		         save_kernel_with_matrix=False, 
-		         verbose=False):
+		         verbose=False, dataset_idx=-1):
 		self.kernel = kernel
 		self.save_kernel_with_matrix = save_kernel_with_matrix
 		self.verbose = verbose
 		self.kernels_with_matrix_dir = "../kernels_with_matrix"
+		self.dataset_idx = dataset_idx
 
 		if not os.path.exists(self.kernels_with_matrix_dir):
 			os.makedirs(self.kernels_with_matrix_dir)
@@ -61,9 +62,15 @@ class KernelClassifier:
 			print(self.kernel.K_matrix)
 
 		if self.save_kernel_with_matrix:
-			save_path = os.path.join(self.kernels_with_matrix_dir, 
-									 self.kernel.name + "_"+ \
-									 str(self.kernel.K_matrix.shape[0]) + ".pkl")
+			if self.dataset_idx == - 1:
+				save_path = os.path.join(self.kernels_with_matrix_dir, 
+										 self.kernel.name + "_"+ \
+										 str(self.kernel.K_matrix.shape[0]) + ".pkl")
+			else:
+				save_path = os.path.join(self.kernels_with_matrix_dir, 
+										 self.kernel.name + "_"+ \
+										 str(self.kernel.K_matrix.shape[0]) \
+										 + "_" + str(self.dataset_idx) + ".pkl")
 			self.kernel.save_kernel(save_path)
 
 		self.fit_matrix(self.kernel, y)
@@ -82,9 +89,9 @@ class KernelLogisticRegression(KernelClassifier):
 	'''
 	def __init__(self, kernel, lambda_, 
 		         save_kernel_with_matrix=False, 
-		         verbose=False,
+		         verbose=False, dataset_idx=-1,
 		         tolerance=1e-5):
-		super().__init__(kernel, save_kernel_with_matrix, verbose)
+		super().__init__(kernel, save_kernel_with_matrix, verbose, dataset_idx)
 		self.lambda_ = lambda_
 		self.tolerance = tolerance
 
@@ -113,8 +120,8 @@ class KernelSVM(KernelClassifier):
 	'''
 	def __init__(self, kernel, C,
 				 save_kernel_with_matrix=False,
-				 verbose=False):
-		super().__init__(kernel, save_kernel_with_matrix, verbose)
+				 verbose=False, dataset_idx=-1):
+		super().__init__(kernel, save_kernel_with_matrix, verbose, dataset_idx)
 		self.C = C
 
 

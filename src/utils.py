@@ -1,5 +1,6 @@
 import numpy as np 
 import pandas as pd
+import os
 
 def solveWKRR(K, W, Y, lambda_):
 	'''
@@ -36,3 +37,16 @@ def submit(x, verbose=True):
 	x.to_csv("../Yte.csv", index=None)
 	if verbose:
 		print("Yte saved.")
+
+
+
+
+
+
+
+
+
+
+
+
+
