@@ -188,6 +188,50 @@ def experiment_specific(Xtrain, Ytrain, Xval, Yval,
 	print("The score is:")
 	print(score.mean())
 
+def experiment_specific_single(Xtrain, Ytrain, Xval, Yval, i,
+					           params, matrix_is_ready=False,
+					           kernel_path="../kernels_with_matrix/.pkl"):
+	Kernel = params["kernel"]
+	if Kernel == SpectrumKernel:
+		k = params["k"]
+
+	Clf = params["clf"]
+	if Clf == KernelLogisticRegression:
+		lambda_ = params["lambda_"]
+		save_kernel_with_matrix = params["save_kernel_with_matrix"]
+		verbose = params["verbose"]
+		tolerance = params["tolerance"]
+	elif Clf == KernelSVM:
+		C = params["C"]
+		save_kernel_with_matrix = params["save_kernel_with_matrix"]
+		verbose = params["verbose"]
+
+	if Kernel == SpectrumKernel:
+		kernel = Kernel(k=k)
+
+	if Clf == KernelLogisticRegression:
+		clf = Clf(kernel, lambda_=lambda_, 
+				  save_kernel_with_matrix=save_kernel_with_matrix,
+				  verbose=verbose,
+				  dataset_idx=i,
+				  tolerance=tolerance)
+	elif Clf == KernelSVM:
+		clf = Clf(kernel, C=C,
+				  save_kernel_with_matrix=save_kernel_with_matrix,
+				  verbose=verbose,
+				  dataset_idx=i)
+
+	if not matrix_is_ready:
+		clf.fit(Xtrain[i], Ytrain[i].Bound)
+	else:
+		path = kernel_path[:- 4] + "_" + str(i) + ".pkl"
+		kernel = Kernel.load_kernel(path)
+		clf.fit_matrix(kernel, Ytrain[i].Bound)
+
+
+	print("The score is:")
+	print(clf.score(Xval[i], Yval[i].Bound))
+
 
 np.random.seed(0)
 pd.options.mode.chained_assignment = None
@@ -195,8 +239,8 @@ pd.options.mode.chained_assignment = None
 
 t0 = time.time()
 
-params = {"kernel" : SpectrumKernel, "clf" : KernelLogisticRegression, "k" : [11] * 3,
-		  "lambda_" : 1e-6, "save_kernel_with_matrix" : True, "verbose" : False,
+params = {"kernel" : SpectrumKernel, "clf" : KernelLogisticRegression, "k" : [9] * 3,
+		  "lambda_" : 1e-4, "save_kernel_with_matrix" : True, "verbose" : False,
 		  "tolerance" : 1e-5}
 
 

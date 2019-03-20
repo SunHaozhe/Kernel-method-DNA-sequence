@@ -140,6 +140,7 @@ class KernelSVM(KernelClassifier):
 		if solution["status"] == "optimal":
 			self.alpha = np.array(solution["x"]).ravel()
 		else:
+			print("solution["status"] =", solution["status"])
 			raise Exception("SVM optimal is not found.")
 
 
