@@ -145,16 +145,17 @@ def experiment_specific(Xtrain, Ytrain, Xval, Yval,
 					    params, matrix_is_ready=False,
 					    kernel_path="../kernels_with_matrix/.pkl"):
 	Kernel = params["kernel"]
-	if Kernel == SpectrumKernel:
+	if SpectrumKernel in Kernel:
 		k = params["k"]
 
 	Clf = params["clf"]
-	if Clf == KernelLogisticRegression:
+	if KernelLogisticRegression in Clf:
 		lambda_ = params["lambda_"]
 		save_kernel_with_matrix = params["save_kernel_with_matrix"]
 		verbose = params["verbose"]
 		tolerance = params["tolerance"]
-	elif Clf == KernelSVM:
+
+	if KernelSVM in Clf:
 		C = params["C"]
 		save_kernel_with_matrix = params["save_kernel_with_matrix"]
 		verbose = params["verbose"]
@@ -162,26 +163,26 @@ def experiment_specific(Xtrain, Ytrain, Xval, Yval,
 	score = np.zeros(3)
 	for i in range(3):
 		print("i =", i)
-		if Kernel == SpectrumKernel:
-			kernel = Kernel(k=k[i])
+		if Kernel[i] == SpectrumKernel:
+			kernel = Kernel[i](k=k[i])
 
-		if Clf == KernelLogisticRegression:
-			clf = Clf(kernel, lambda_=lambda_, 
-					  save_kernel_with_matrix=save_kernel_with_matrix,
-					  verbose=verbose,
-					  dataset_idx=i,
-					  tolerance=tolerance)
-		elif Clf == KernelSVM:
-			clf = Clf(kernel, C=C,
-					  save_kernel_with_matrix=save_kernel_with_matrix,
-					  verbose=verbose,
-					  dataset_idx=i)
+		if Clf[i] == KernelLogisticRegression:
+			clf = Clf[i](kernel, lambda_=lambda_[i], 
+					     save_kernel_with_matrix=save_kernel_with_matrix[i],
+					     verbose=verbose[i],
+					     dataset_idx=i,
+					     tolerance=tolerance[i])
+		elif Clf[i] == KernelSVM:
+			clf = Clf[i](kernel, C=C[i],
+					     save_kernel_with_matrix=save_kernel_with_matrix[i],
+					     verbose=verbose[i],
+					     dataset_idx=i)
 
 		if not matrix_is_ready:
 			clf.fit(Xtrain[i], Ytrain[i].Bound)
 		else:
 			path = kernel_path[:- 4] + "_" + str(i) + ".pkl"
-			kernel = Kernel.load_kernel(path)
+			kernel = Kernel[i].load_kernel(path)
 			clf.fit_matrix(kernel, Ytrain[i].Bound)
 
 		score[i] = clf.score(Xval[i], Yval[i].Bound)
@@ -192,40 +193,40 @@ def experiment_specific_single(Xtrain, Ytrain, Xval, Yval, i,
 					           params, matrix_is_ready=False,
 					           kernel_path="../kernels_with_matrix/.pkl"):
 	Kernel = params["kernel"]
-	if Kernel == SpectrumKernel:
+	if Kernel[i] == SpectrumKernel:
 		k = params["k"]
 
 	Clf = params["clf"]
-	if Clf == KernelLogisticRegression:
+	if Clf[i] == KernelLogisticRegression:
 		lambda_ = params["lambda_"]
 		save_kernel_with_matrix = params["save_kernel_with_matrix"]
 		verbose = params["verbose"]
 		tolerance = params["tolerance"]
-	elif Clf == KernelSVM:
+	elif Clf[i] == KernelSVM:
 		C = params["C"]
 		save_kernel_with_matrix = params["save_kernel_with_matrix"]
 		verbose = params["verbose"]
 
-	if Kernel == SpectrumKernel:
-		kernel = Kernel(k=k)
+	if Kernel[i] == SpectrumKernel:
+		kernel = Kernel[i](k=k[i])
 
-	if Clf == KernelLogisticRegression:
-		clf = Clf(kernel, lambda_=lambda_, 
-				  save_kernel_with_matrix=save_kernel_with_matrix,
-				  verbose=verbose,
-				  dataset_idx=i,
-				  tolerance=tolerance)
-	elif Clf == KernelSVM:
-		clf = Clf(kernel, C=C,
-				  save_kernel_with_matrix=save_kernel_with_matrix,
-				  verbose=verbose,
-				  dataset_idx=i)
+	if Clf[i] == KernelLogisticRegression:
+		clf = Clf[i](kernel, lambda_=lambda_[i] , 
+				     save_kernel_with_matrix=save_kernel_with_matrix[i],
+				     verbose=verbose[i],
+				     dataset_idx=i,
+				     tolerance=tolerance[i])
+	elif Clf[i] == KernelSVM:
+		clf = Clf[i](kernel, C=C[i],
+				     save_kernel_with_matrix=save_kernel_with_matrix[i],
+				     verbose=verbose[i],
+				     dataset_idx=i)
 
 	if not matrix_is_ready:
 		clf.fit(Xtrain[i], Ytrain[i].Bound)
 	else:
 		path = kernel_path[:- 4] + "_" + str(i) + ".pkl"
-		kernel = Kernel.load_kernel(path)
+		kernel = Kernel[i].load_kernel(path)
 		clf.fit_matrix(kernel, Ytrain[i].Bound)
 
 
@@ -239,10 +240,11 @@ pd.options.mode.chained_assignment = None
 
 t0 = time.time()
 
-params = {"kernel" : SpectrumKernel, "clf" : KernelLogisticRegression, "k" : [9] * 3,
-		  "lambda_" : 1e-4, "save_kernel_with_matrix" : True, "verbose" : False,
-		  "tolerance" : 1e-5}
-
+params = {"kernel" : [SpectrumKernel] * 3, 
+		  "clf" : [KernelSVM, KernelLogisticRegression, KernelLogisticRegression], 
+		  "k" : [12, 9, 8], "lambda_" : [None, 1e-3, 1e-4], "C" : [1, None, None],
+		  "save_kernel_with_matrix" : [True] * 3, "verbose" : [False] * 3, 
+		  "tolerance" : [1e-5] * 3}
 
 use_specific = True
 
