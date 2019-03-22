@@ -28,8 +28,10 @@ class KernelClassifier:
 	def predict(self, X_test):
 		if isinstance(self.kernel, KernelImplicit):
 			return self.predict_implicit(X_test)
-		else:
+		elif isinstance(self.kernel, KernelExplicit):
 			return self.predict_explicit(X_test)
+		elif isinstance(self.kernel, KernelSum):
+			return self.predict_sum_kernels(X_test)
 
 	def predict_implicit(self, X_test):
 		prediction = np.zeros(X_test.shape[0])
@@ -45,6 +47,18 @@ class KernelClassifier:
 		prediction = np.zeros(X_test.shape[0])
 		for idx in range(X_test.shape[0]):
 			prediction[idx] = self.predict_one_instance(idx)
+		output = np.zeros_like(prediction, dtype=int)
+		output[prediction < 0] = - 1
+		output[prediction >= 0] = 1
+		return output
+
+	def predict_sum_kernels(self, X_test):
+		prediction = np.zeros(X_test.shape[0])
+		for i in range(X_test.shape[0]):
+			vector = np.zeros_like(self.alpha)
+			for kernel_ in self.kernel.kernels:
+				vector += kernel_.test(X_test.loc[i, X_test.columns[1]])
+			prediction[i] = self.alpha.dot(vector)
 		output = np.zeros_like(prediction, dtype=int)
 		output[prediction < 0] = - 1
 		output[prediction >= 0] = 1

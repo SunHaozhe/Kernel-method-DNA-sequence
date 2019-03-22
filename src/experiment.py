@@ -104,6 +104,9 @@ def experiment_uniform(Xtrain, Ytrain, Xval, Yval,
 	if Kernel == SpectrumKernel:
 		k = params["k"]
 
+	if LAKernel in Kernel:
+		beta = params["beta"]
+
 	Clf = params["clf"]
 	if Clf == KernelLogisticRegression:
 		lambda_ = params["lambda_"]
@@ -117,6 +120,8 @@ def experiment_uniform(Xtrain, Ytrain, Xval, Yval,
 
 	if Kernel == SpectrumKernel:
 		kernel = Kernel(k=k)
+	elif Kernel == LAKernel:
+		kernel = Kernel(beta=beta)
 
 	if Clf == KernelLogisticRegression:
 		clf = Clf(kernel, lambda_=lambda_, 
@@ -142,11 +147,15 @@ def experiment_uniform(Xtrain, Ytrain, Xval, Yval,
 	print(clf.score(Xval, Yval.Bound))
 
 def experiment_specific(Xtrain, Ytrain, Xval, Yval,
-					    params, matrix_is_ready=False,
-					    kernel_path="../kernels_with_matrix/.pkl"):
+						params, matrix_is_ready=False,
+						kernel_path="../kernels_with_matrix/.pkl",
+						ensemble=False):
 	Kernel = params["kernel"]
 	if SpectrumKernel in Kernel:
 		k = params["k"]
+
+	if LAKernel in Kernel:
+		beta = params["beta"]
 
 	Clf = params["clf"]
 	if KernelLogisticRegression in Clf:
@@ -161,22 +170,26 @@ def experiment_specific(Xtrain, Ytrain, Xval, Yval,
 		verbose = params["verbose"]
 
 	score = np.zeros(3)
+	if ensemble:
+		predictions = []
 	for i in range(3):
 		print("i =", i)
 		if Kernel[i] == SpectrumKernel:
 			kernel = Kernel[i](k=k[i])
+		elif Kernel[i] == LAKernel:
+			kernel = Kernel[i](beta=beta[i])
 
 		if Clf[i] == KernelLogisticRegression:
 			clf = Clf[i](kernel, lambda_=lambda_[i], 
-					     save_kernel_with_matrix=save_kernel_with_matrix[i],
-					     verbose=verbose[i],
-					     dataset_idx=i,
-					     tolerance=tolerance[i])
+						 save_kernel_with_matrix=save_kernel_with_matrix[i],
+						 verbose=verbose[i],
+						 dataset_idx=i,
+						 tolerance=tolerance[i])
 		elif Clf[i] == KernelSVM:
 			clf = Clf[i](kernel, C=C[i],
-					     save_kernel_with_matrix=save_kernel_with_matrix[i],
-					     verbose=verbose[i],
-					     dataset_idx=i)
+						 save_kernel_with_matrix=save_kernel_with_matrix[i],
+						 verbose=verbose[i],
+						 dataset_idx=i)
 
 		if not matrix_is_ready:
 			clf.fit(Xtrain[i], Ytrain[i].Bound)
@@ -185,16 +198,28 @@ def experiment_specific(Xtrain, Ytrain, Xval, Yval,
 			kernel = Kernel[i].load_kernel(path)
 			clf.fit_matrix(kernel, Ytrain[i].Bound)
 
-		score[i] = clf.score(Xval[i], Yval[i].Bound)
-	print("The score is:")
-	print(score.mean())
+		if not ensemble:
+			score[i] = clf.score(Xval[i], Yval[i].Bound)
+		else:
+			predictions.append(clf.predict(Xval[i]))
+	if not ensemble:
+		print("The score is:")
+		print(score.mean())
+	else:
+		prediction = np.concatenate((predictions[0], 
+									 predictions[1], 
+									 predictions[2]), axis=0)
+		return prediction
 
 def experiment_specific_single(Xtrain, Ytrain, Xval, Yval, i,
-					           params, matrix_is_ready=False,
-					           kernel_path="../kernels_with_matrix/.pkl"):
+							   params, matrix_is_ready=False,
+							   kernel_path="../kernels_with_matrix/.pkl"):
 	Kernel = params["kernel"]
 	if Kernel[i] == SpectrumKernel:
 		k = params["k"]
+
+	if LAKernel in Kernel:
+		beta = params["beta"]
 
 	Clf = params["clf"]
 	if Clf[i] == KernelLogisticRegression:
@@ -209,18 +234,20 @@ def experiment_specific_single(Xtrain, Ytrain, Xval, Yval, i,
 
 	if Kernel[i] == SpectrumKernel:
 		kernel = Kernel[i](k=k[i])
+	elif Kernel[i] == LAKernel:
+			kernel = Kernel[i](beta=beta[i])
 
 	if Clf[i] == KernelLogisticRegression:
 		clf = Clf[i](kernel, lambda_=lambda_[i] , 
-				     save_kernel_with_matrix=save_kernel_with_matrix[i],
-				     verbose=verbose[i],
-				     dataset_idx=i,
-				     tolerance=tolerance[i])
+					 save_kernel_with_matrix=save_kernel_with_matrix[i],
+					 verbose=verbose[i],
+					 dataset_idx=i,
+					 tolerance=tolerance[i])
 	elif Clf[i] == KernelSVM:
 		clf = Clf[i](kernel, C=C[i],
-				     save_kernel_with_matrix=save_kernel_with_matrix[i],
-				     verbose=verbose[i],
-				     dataset_idx=i)
+					 save_kernel_with_matrix=save_kernel_with_matrix[i],
+					 verbose=verbose[i],
+					 dataset_idx=i)
 
 	if not matrix_is_ready:
 		clf.fit(Xtrain[i], Ytrain[i].Bound)
@@ -240,26 +267,135 @@ pd.options.mode.chained_assignment = None
 
 t0 = time.time()
 
-params = {"kernel" : [SpectrumKernel] * 3, 
-		  "clf" : [KernelSVM, KernelLogisticRegression, KernelLogisticRegression], 
-		  "k" : [12, 9, 8], "lambda_" : [None, 1e-3, 1e-4], "C" : [1, None, None],
-		  "save_kernel_with_matrix" : [True] * 3, "verbose" : [False] * 3, 
-		  "tolerance" : [1e-5] * 3}
+use_ensemble = True
 
-use_specific = True
+if not use_ensemble:
 
-if use_specific:
-	Xtrain, Ytrain, Xval, Yval = make_dataset_specific_experiment(save_dir="../datasets")
+	params = {"kernel" : [SpectrumKernel] * 3, 
+			  "clf" : [KernelLogisticRegression] * 3, 
+			  "k" : [9, 9, 9], "lambda_" : [1e-4, 1e-4, 1e-4], "C" : [None, None, None],
+			  "beta": [0.5] * 3,
+			  "save_kernel_with_matrix" : [True] * 3, "verbose" : [False] * 3, 
+			  "tolerance" : [1e-5] * 3}
 
-	experiment_specific(Xtrain, Ytrain, Xval, Yval, 
-					    params, matrix_is_ready=False,
-					    kernel_path="../kernels_with_matrix/.pkl")
+	use_specific = True
+
+	if use_specific:
+		Xtrain, Ytrain, Xval, Yval = make_dataset_specific_experiment(save_dir="../datasets")
+
+		experiment_specific(Xtrain, Ytrain, Xval, Yval, 
+							params, matrix_is_ready=False,
+							kernel_path="../kernels_with_matrix/.pkl")
+	else:
+		Xtrain, Ytrain, Xval, Yval = make_dataset_uniform_experiment(save_dir="../datasets")
+
+		experiment_uniform(Xtrain, Ytrain, Xval, Yval, 
+						   params, matrix_is_ready=False,
+						   kernel_path="../kernels_with_matrix/.pkl")
 else:
-	Xtrain, Ytrain, Xval, Yval = make_dataset_uniform_experiment(save_dir="../datasets")
+	Xtrain, Ytrain, Xval, Yval = make_dataset_specific_experiment(save_dir="../datasets")
+	chunk_size = Xval[0].shape[0] 
 
-	experiment_uniform(Xtrain, Ytrain, Xval, Yval, 
-					   params, matrix_is_ready=False,
-					   kernel_path="../kernels_with_matrix/.pkl")
+	ensemble_result = np.zeros(3 * chunk_size)
+
+	# dataset 0
+	dataset_idx = 0
+	print(dataset_idx)
+
+	kernel = SpectrumKernel(k=9)
+	clf = KernelLogisticRegression(kernel, lambda_=1e-4, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx,
+				  tolerance=1e-5)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[:chunk_size] += clf.predict(Xval[dataset_idx])
+
+	kernel = SpectrumKernel(k=12)
+	clf = KernelLogisticRegression(kernel, lambda_=1e-2, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx,
+				  tolerance=1e-5)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[:chunk_size] += clf.predict(Xval[dataset_idx])
+
+	kernel = SpectrumKernel(k=12)
+	clf = KernelSVM(kernel, C=1, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[:chunk_size] += clf.predict(Xval[dataset_idx])
+
+	# dataset 1
+	dataset_idx = 1
+	print(dataset_idx)
+
+	kernel = SpectrumKernel(k=9)
+	clf = KernelLogisticRegression(kernel, lambda_=1e-4, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx,
+				  tolerance=1e-5)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[chunk_size:chunk_size*2] += clf.predict(Xval[dataset_idx])
+	
+	kernel = SpectrumKernel(k=9)
+	clf = KernelLogisticRegression(kernel, lambda_=1e-3, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx,
+				  tolerance=1e-5)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[chunk_size:chunk_size*2] += clf.predict(Xval[dataset_idx])
+
+	kernel = SpectrumKernel(k=8)
+	clf = KernelSVM(kernel, C=1e-2, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[chunk_size:chunk_size*2] += clf.predict(Xval[dataset_idx])
+	
+	# dataset 2
+	dataset_idx = 2
+	print(dataset_idx)
+
+	kernel = SpectrumKernel(k=9)
+	clf = KernelLogisticRegression(kernel, lambda_=1e-4, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx,
+				  tolerance=1e-5)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[chunk_size*2:chunk_size*3] += clf.predict(Xval[dataset_idx])
+	
+	kernel = SpectrumKernel(k=8)
+	clf = KernelLogisticRegression(kernel, lambda_=1e-4, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx,
+				  tolerance=1e-5)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[chunk_size*2:chunk_size*3] += clf.predict(Xval[dataset_idx])
+
+	kernel = SpectrumKernel(k=12)
+	clf = KernelSVM(kernel, C=1e-2, 
+				  save_kernel_with_matrix=True,
+				  verbose=False,
+				  dataset_idx=dataset_idx)
+	clf.fit(Xtrain[dataset_idx], Ytrain[dataset_idx].Bound)
+	ensemble_result[chunk_size*2:chunk_size*3] += clf.predict(Xval[dataset_idx])
+	
+	# ensemble
+	ensemble_result = ensemble_voting(ensemble_result)
+	scores = np.zeros(3)
+	for i in range(3):
+		scores[i] = (ensemble_result[i * chunk_size : (i + 1) * \
+					chunk_size] == Yval[i].Bound).sum() / chunk_size
+	print("The score is:")
+	print(scores.mean())
 
 
 	

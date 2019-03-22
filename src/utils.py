@@ -38,6 +38,12 @@ def submit(x, verbose=True):
 	if verbose:
 		print("Yte saved.")
 
+def ensemble_voting(prediction):
+	output = np.zeros_like(prediction, dtype=int)
+	output[prediction < 0] = - 1
+	output[prediction >= 0] = 1
+	return output
+
 
 
 
