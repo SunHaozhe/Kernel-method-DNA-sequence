@@ -130,7 +130,7 @@ class KernelLogisticRegression(KernelClassifier):
 
 class KernelSVM(KernelClassifier):
 	'''
-	Kernel SVM classifier, C-SVM
+	Kernel SVM classifier, C-SVM, hinge loss
 	'''
 	def __init__(self, kernel, C,
 				 save_kernel_with_matrix=False,
@@ -156,6 +156,34 @@ class KernelSVM(KernelClassifier):
 		else:
 			print('solution["status"] =', solution["status"])
 			raise Exception("SVM optimal is not found.")
+
+
+class Kernel2SVM(KernelClassifier):
+	'''
+	Kernel 2-SVM classifier, 2-SVM, squared hinge loss
+	'''
+	def __init__(self, kernel, lambda_,
+				 save_kernel_with_matrix=False,
+				 verbose=False, dataset_idx=-1):
+		super().__init__(kernel, save_kernel_with_matrix, verbose, dataset_idx)
+		self.lambda_ = lambda_
+
+	def fit_(self, y):
+		cvxopt.solvers.options['show_progress'] = self.verbose
+		n = self.kernel.K_matrix.shape[0]
+		P = cvxopt.matrix(2 * (self.kernel.K_matrix + n * self.lambda_ * np.identity(n)), tc="d")
+		q = cvxopt.matrix(- 2 * y, tc="d")
+		G = cvxopt.matrix(np.diag(- y), tc="d")
+		h = cvxopt.matrix(np.zeros((n, 1)), tc="d")
+		
+		solution = cvxopt.solvers.qp(P, q, G, h)
+
+		if solution["status"] == "optimal":
+			self.alpha = np.array(solution["x"]).ravel()
+		else:
+			print('solution["status"] =', solution["status"])
+			raise Exception("SVM optimal is not found.")
+
 
 
 
